@@ -1,13 +1,13 @@
 # expense-tracker-api
 
-REST API для учёта личных расходов. Учебный проект, написан на чистом `net/http` без фреймворков.
+REST API для учёта личных расходов. Учебный проект на чистом `net/http`, без фреймворков.
 
 ## Стек
 
 - Go 1.25
 - `net/http` — HTTP-сервер и роутинг (метод в шаблоне маршрута, Go 1.22+)
 - `shopspring/decimal` — денежные суммы без потери точности
-- хранение в памяти (PostgreSQL в планах)
+- PostgreSQL 17 в Docker (подключение кода к базе в работе; сейчас данные хранятся в памяти)
 
 ## Структура
 
@@ -18,9 +18,40 @@ internal/
   repository/         хранение (сейчас в памяти)
   service/            бизнес-правила и валидация
   handler/            HTTP: разбор запроса, коды ответов, JSON
+docker-compose.yml    PostgreSQL для локальной разработки
 ```
 
-Зависимости направлены в одну сторону: `handler → service → repository`. Сервис работает с хранилищем через интерфейс, объявленный в самом сервисе, поэтому не зависит от конкретной реализации.
+Зависимости направлены в одну сторону: `handler → service → repository`. Сервис работает с хранилищем через интерфейс, объявленный в самом сервисе, поэтому не зависит от конкретной реализации — её подставляет `main`.
+
+## База данных
+
+PostgreSQL поднимается в Docker одной командой:
+
+```
+docker compose up -d
+```
+
+Проверить, что работает:
+
+```
+docker compose ps
+```
+
+Подключиться к базе вручную:
+
+```
+docker compose exec db psql -U expenses -d expenses
+```
+
+| Команда | Что делает |
+|---|---|
+| `docker compose stop` | остановить, данные сохраняются |
+| `docker compose start` | запустить снова |
+| `docker compose logs db` | логи базы |
+| `docker compose down` | удалить контейнер, данные сохраняются в volume |
+| `docker compose down -v` | удалить контейнер вместе с данными |
+
+Логин, пароль и имя базы заданы в `docker-compose.yml` — значения учебные, только для локального запуска.
 
 ## Запуск
 
@@ -95,12 +126,12 @@ curl.exe -X POST http://localhost:8080/expenses -H "Content-Type: application/js
 curl.exe -i http://localhost:8080/expenses
 ```
 
-> Команды написаны для PowerShell, поэтому `curl.exe` — в PowerShell слово `curl` занято встроенной командой. В Linux и macOS достаточно `curl`.
+> Команды написаны для PowerShell, где слово `curl` занято встроенной командой — поэтому `curl.exe`. В Linux и macOS достаточно `curl`.
 
 ## Планы
 
-- PostgreSQL + миграции (golang-migrate)
+- перевести репозиторий на PostgreSQL, миграции через golang-migrate
 - фильтры по датам и категории, отчёт по категориям
-- Docker и docker-compose
+- Dockerfile для самого сервиса
 - структурированные логи с trace id, метрики
 - GitHub Actions: lint, vet, test
