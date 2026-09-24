@@ -7,7 +7,8 @@ REST API для учёта личных расходов. Учебный про�
 - Go 1.25
 - `net/http` — HTTP-сервер и роутинг (метод в шаблоне маршрута, Go 1.22+)
 - `shopspring/decimal` — денежные суммы без потери точности
-- PostgreSQL 17 в Docker (подключение кода к базе в работе; сейчас данные хранятся в памяти)
+- PostgreSQL 17 в Docker, схема через миграции (golang-migrate)
+- подключение кода к базе в работе; сейчас сервис хранит данные в памяти
 
 ## Структура
 
@@ -18,6 +19,7 @@ internal/
   repository/         хранение (сейчас в памяти)
   service/            бизнес-правила и валидация
   handler/            HTTP: разбор запроса, коды ответов, JSON
+migrations/           миграции схемы базы
 docker-compose.yml    PostgreSQL для локальной разработки
 ```
 
@@ -53,6 +55,52 @@ docker compose exec db psql -U expenses -d expenses
 
 Логин, пароль и имя базы заданы в `docker-compose.yml` — значения учебные, только для локального запуска.
 
+## Миграции
+
+Схема базы описана в папке `migrations/` и применяется через [golang-migrate](https://github.com/golang-migrate/migrate). Руками структуру базы не меняем — только новыми миграциями.
+
+Установка:
+
+```
+go install -tags "postgres" github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+```
+
+Чтобы не набирать адрес базы каждый раз, положи его в переменную (PowerShell):
+
+```
+$env:DB_URL = "postgres://expenses:expenses@localhost:5432/expenses?sslmode=disable"
+```
+
+Применить все миграции:
+
+```
+migrate -path migrations -database $env:DB_URL up
+```
+
+Откатить последнюю:
+
+```
+migrate -path migrations -database $env:DB_URL down 1
+```
+
+Создать новую:
+
+```
+migrate create -ext sql -dir migrations -seq название_миграции
+```
+
+### Таблица `expenses`
+
+| Колонка | Тип | Ограничения |
+|---|---|---|
+| `id` | `BIGSERIAL` | первичный ключ |
+| `amount` | `NUMERIC(14, 2)` | обязательна, больше нуля |
+| `category` | `TEXT` | обязательна |
+| `note` | `TEXT` | по умолчанию пустая строка |
+| `created_at` | `TIMESTAMPTZ` | по умолчанию текущее время |
+
+Индекс по `created_at` — для выборок за период.
+
 ## Запуск
 
 ```
@@ -81,7 +129,7 @@ go test ./... -cover
 ### Правила валидации
 
 - `category` — обязательна, пробелы по краям обрезаются
-- `amount` — строго больше нуля
+- `amount` — строго больше нуля; то же правило дублируется ограничением `CHECK` в базе
 - `id` и `created_at` назначает сервер, из запроса не принимаются
 
 ## Проверка вручную
@@ -130,7 +178,7 @@ curl.exe -i http://localhost:8080/expenses
 
 ## Планы
 
-- перевести репозиторий на PostgreSQL, миграции через golang-migrate
+- перевести репозиторий с памяти на PostgreSQL (схема и миграции уже готовы)
 - фильтры по датам и категории, отчёт по категориям
 - Dockerfile для самого сервиса
 - структурированные логи с trace id, метрики
