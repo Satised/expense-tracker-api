@@ -24,7 +24,7 @@ func (h *Handler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	created, err := h.expenses.Create(service.CreateExpenseInput{
+	created, err := h.expenses.Create(r.Context(), service.CreateExpenseInput{
 		Amount:   req.Amount,
 		Category: req.Category,
 		Note:     req.Note,
@@ -46,5 +46,12 @@ func (h *Handler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListExpenses(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, h.expenses.List())
+	expenses, err := h.expenses.List(r.Context())
+	if err != nil {
+		log.Println("list expenses failed:", err)
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, expenses)
 }

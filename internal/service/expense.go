@@ -1,7 +1,9 @@
 package service
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/shopspring/decimal"
@@ -19,8 +21,8 @@ var (
 // --- что сервис требует от хранилища ---
 
 type ExpenseRepository interface {
-	Add(e model.Expense) model.Expense
-	List() []model.Expense
+	Add(ctx context.Context, e model.Expense) (model.Expense, error)
+	List(ctx context.Context) ([]model.Expense, error)
 }
 
 // --- сам сервис ---
@@ -41,7 +43,7 @@ type CreateExpenseInput struct {
 	Note     string
 }
 
-func (s *ExpenseService) Create(in CreateExpenseInput) (model.Expense, error) {
+func (s *ExpenseService) Create(ctx context.Context, in CreateExpenseInput) (model.Expense, error) {
 	category := strings.TrimSpace(in.Category)
 
 	if category == "" {
@@ -52,15 +54,23 @@ func (s *ExpenseService) Create(in CreateExpenseInput) (model.Expense, error) {
 		return model.Expense{}, ErrAmountNotPositive
 	}
 
-	created := s.repo.Add(model.Expense{
+	created, err := s.repo.Add(ctx, model.Expense{
 		Amount:   in.Amount,
 		Category: category,
 		Note:     strings.TrimSpace(in.Note),
 	})
+	if err != nil {
+		return model.Expense{}, fmt.Errorf("add expense: %w", err)
+	}
 
 	return created, nil
 }
 
-func (s *ExpenseService) List() []model.Expense {
-	return s.repo.List()
+func (s *ExpenseService) List(ctx context.Context) ([]model.Expense, error) {
+	expenses, err := s.repo.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list expenses: %w", err)
+	}
+
+	return expenses, nil
 }

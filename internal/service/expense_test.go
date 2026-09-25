@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -13,21 +14,21 @@ type fakeRepo struct {
 	added []model.Expense
 }
 
-func (f *fakeRepo) Add(e model.Expense) model.Expense {
+func (f *fakeRepo) Add(ctx context.Context, e model.Expense) (model.Expense, error) {
 	e.ID = len(f.added) + 1
 	f.added = append(f.added, e)
-	return e
+	return e, nil
 }
 
-func (f *fakeRepo) List() []model.Expense {
-	return f.added
+func (f *fakeRepo) List(ctx context.Context) ([]model.Expense, error) {
+	return f.added, nil
 }
 
 func TestCreate_OK(t *testing.T) {
 	repo := &fakeRepo{}
 	svc := NewExpenseService(repo)
 
-	got, err := svc.Create(CreateExpenseInput{
+	got, err := svc.Create(context.Background(), CreateExpenseInput{
 		Amount:   decimal.NewFromInt(1500),
 		Category: "food",
 	})
@@ -39,7 +40,6 @@ func TestCreate_OK(t *testing.T) {
 	if got.ID != 1 {
 		t.Errorf("Create() returned ID = %d, want 1", got.ID)
 	}
-
 }
 
 func TestCreate_Errors(t *testing.T) {
@@ -80,7 +80,7 @@ func TestCreate_Errors(t *testing.T) {
 			repo := &fakeRepo{}
 			svc := NewExpenseService(repo)
 
-			_, err := svc.Create(CreateExpenseInput{
+			_, err := svc.Create(context.Background(), CreateExpenseInput{
 				Amount:   tc.amount,
 				Category: tc.category,
 			})

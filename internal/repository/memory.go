@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -17,7 +18,7 @@ func NewExpenseStore() *ExpenseStore {
 	return &ExpenseStore{nextID: 1}
 }
 
-func (s *ExpenseStore) Add(e model.Expense) model.Expense {
+func (s *ExpenseStore) Add(ctx context.Context, e model.Expense) (model.Expense, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -26,14 +27,14 @@ func (s *ExpenseStore) Add(e model.Expense) model.Expense {
 	e.CreatedAt = time.Now()
 
 	s.items = append(s.items, e)
-	return e
+	return e, nil
 }
 
-func (s *ExpenseStore) List() []model.Expense {
+func (s *ExpenseStore) List(ctx context.Context) ([]model.Expense, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	out := make([]model.Expense, len(s.items))
 	copy(out, s.items)
-	return out
+	return out, nil
 }
